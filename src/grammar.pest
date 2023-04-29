@@ -1,0 +1,17 @@
+WHITESPACE = _{ " " | "\t" | "\n" | "\r" }
+left_parentheses = _{ "(" }
+right_parentheses = _{ ")" }
+
+
+number = @{ "-"? ~ ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT*)? }
+string = ${ "\"" ~ text ~ "\"" }
+text   = @{ (!"\"" ~ ANY)* }
+ident  = @{ (!"," ~ !")" ~ ANY)+ }
+
+argument = { invocation | number | string | ident }
+
+function_ident = @{ (!left_parentheses ~ !right_parentheses ~ ANY)+ }
+
+invocation = { function_ident ~ left_parentheses ~ (argument ~ ("," ~ argument)*)? ~ right_parentheses }
+
+program = { SOI ~ (invocation ~ ";")* ~ EOI }
