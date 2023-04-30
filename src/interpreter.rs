@@ -1,3 +1,6 @@
+mod context;
+mod system;
+
 use std::{cell::RefCell, collections::HashMap, mem::Discriminant, rc::Rc};
 
 use pest::iterators::Pair;
@@ -7,40 +10,30 @@ use strum_macros::EnumIter;
 
 use crate::parser;
 
+use self::{system::SystemFunction, context::ContextSignature};
+
 type FunctionScope = HashMap<FunctionSignature, FunctionDefinition>;
 type VariableScope = HashMap<String, Rc<RefCell<Data>>>;
 
 #[derive(Debug, PartialEq, Eq, Hash)]
-struct FunctionSignature {
+pub struct FunctionSignature {
     name: String,
     args: Vec<Discriminant<Data>>,
 }
 
 #[derive(Debug, Clone, Copy)]
-enum FunctionDefinition {
+pub enum FunctionDefinition {
     System(SystemFunction),
 }
 
-#[derive(EnumIter, Debug, Clone, Copy)]
-enum SystemFunction {
-    Println,
-    PrintlnNum,
-    Add,
-    Str,
-}
-
-enum ContextFunction {
-    Let,
-}
-
 #[derive(Debug)]
-struct Invocation {
+pub struct Invocation {
     name: String,
     args: Vec<Argument>,
 }
 
 #[derive(Debug, Clone)]
-enum Data {
+pub enum Data {
     String(String),
     Number(f64),
     Boolean(bool),
@@ -49,7 +42,7 @@ enum Data {
 }
 
 #[derive(Debug)]
-enum Argument {
+pub enum Argument {
     Function(Invocation),
     Data(Data),
     Ident(String),
@@ -91,6 +84,7 @@ fn generate_default_scope() -> FunctionScope {
     scope
 }
 
+#[macro_export]
 macro_rules! signature {
     ($name:expr, $($arg:expr),+) => {
         FunctionSignature {
@@ -100,62 +94,17 @@ macro_rules! signature {
     };
 }
 
-impl SystemFunction {
-    fn execute(
-        &self,
-        args: &[Rc<RefCell<Data>>],
-        function_scope: &mut FunctionScope,
-        variable_scope: &mut VariableScope,
-    ) -> Data {
-        match self {
-            SystemFunction::Println => {
-                println!(
-                    "{}",
-                    args.iter()
-                        .map(|arg| arg.borrow_mut().to_string())
-                        .collect::<Vec<String>>()
-                        .join(" ")
-                );
-                Data::Unit
-            }
-            SystemFunction::PrintlnNum => {
-                println!("{}", args[0].borrow_mut().number());
-                Data::Unit
-            }
-            SystemFunction::Add => {
-                Data::Number(args[0].borrow_mut().number() + args[1].borrow_mut().number())
-            }
-            SystemFunction::Str => Data::String(args[0].borrow_mut().to_string()),
-        }
-    }
-
-    fn signature(&self) -> FunctionSignature {
-        match self {
-            SystemFunction::Println => signature!("println".into(), Data::String("".to_string())),
-            SystemFunction::PrintlnNum => signature!("println".into(), Data::Number(0.)),
-            SystemFunction::Add => signature!("+".into(), Data::Number(0.), Data::Number(0.)),
-            SystemFunction::Str => signature!("str".into(), Data::Number(0.)),
-        }
-    }
-}
-
-impl ContextFunction {
-    fn execute(
-        &self,
-        args: &[Argument],
-        function_scope: &mut FunctionScope,
-        variable_scope: &mut VariableScope,
-    ) {
-        match self {
-            ContextFunction::Let => {
-                
-            },
-        }
-    }
-}
-
 impl Invocation {
     pub fn evaluate(&self, function_scope: &mut FunctionScope, variable_scope: &mut VariableScope) -> Data {
+        let context_signature = ContextSignature {
+            name: self.name.clone(),
+            args: self.args.iter().map(mem::discriminant).collect::<Vec<_>>(),
+        };
+
+        if let Some(function) = context::CONTEXT_FUNCTIONS.get(&context_signature) {
+            return function.execute(&self.args, function_scope, variable_scope);
+        }
+
         let args = self
             .args
             .iter()
@@ -172,7 +121,7 @@ impl Invocation {
         };
 
         // println!("{}", self.name);
-        match *function_scope.get(&signature).expect("Function not found") {
+        match *function_scope.get(&signature).unwrap_or_else(|| panic!("Function not found: {}", self.name)) {
             FunctionDefinition::System(function) => function.execute(
                 &self
                     .args
@@ -216,6 +165,15 @@ impl Argument {
                     .expect("Variable not found")
                     .clone(),
             },
+        }
+    }
+}
+
+impl ToString for Argument {
+    fn to_string(&self) -> String {
+        match self {
+            Argument::Ident(i) => i.clone(),
+            _ => panic!("Argument is not an ident")
         }
     }
 }
