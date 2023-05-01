@@ -1,19 +1,16 @@
 mod context;
 mod system;
+mod scope;
 
 use std::{cell::RefCell, collections::HashMap, mem::Discriminant, rc::Rc};
 
 use pest::iterators::Pair;
 use std::mem;
 use strum::IntoEnumIterator;
-use strum_macros::EnumIter;
 
 use crate::parser;
 
-use self::{system::SystemFunction, context::ContextSignature};
-
-type FunctionScope = HashMap<FunctionSignature, FunctionDefinition>;
-type VariableScope = HashMap<String, Rc<RefCell<Data>>>;
+use self::{system::SystemFunction, context::ContextSignature, scope::{FunctionScope, VariableScope}};
 
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct FunctionSignature {
@@ -26,7 +23,7 @@ pub enum FunctionDefinition {
     System(SystemFunction),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Invocation {
     name: String,
     args: Vec<Argument>,
@@ -49,8 +46,8 @@ pub enum Argument {
 }
 
 pub fn execute(program: Pair<parser::Rule>) {
-    let mut function_scope = generate_default_scope();
-    let mut variable_scope = HashMap::new();
+    let mut function_scope = FunctionScope::default();
+    let mut variable_scope = VariableScope::default();
 
     for invocation in program.into_inner() {
         match invocation.as_rule() {
@@ -72,16 +69,6 @@ fn execute_function(
 
     parsed.evaluate(function_scope, variable_scope);
     // println!("{:?}", parsed);
-}
-
-fn generate_default_scope() -> FunctionScope {
-    let mut scope = HashMap::new();
-
-    for function in SystemFunction::iter() {
-        scope.insert(function.signature(), FunctionDefinition::System(function));
-    }
-
-    scope
 }
 
 #[macro_export]
@@ -112,8 +99,8 @@ impl Invocation {
             .collect::<Vec<_>>();
         let args_signature = args
             .iter()
-            .map(|arg| mem::discriminant(&*arg.borrow_mut()))
-            .collect::<Vec<_>>(); // FIXME: this is bad
+            .map(|arg| mem::discriminant(&*arg.borrow()))
+            .collect::<Vec<_>>();
 
         let signature = FunctionSignature {
             name: self.name.clone(),

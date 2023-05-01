@@ -4,3 +4,10 @@ println("Hello, world!");
 println(str(+(1, -4.)));
 println(+(1, 5));
 println(+(a, 15));
+
+let(pi, 3.1415);
+println("Two times pi = ");
+println(+(pi,pi));
+println("1 + 2 + 3 =");
+println(+(1,+(2,3)));
+println(+(pi, +(pi, pi)));

@@ -10,7 +10,7 @@ ident  = @{ (!"," ~ !")" ~ ANY)+ }
 
 argument = { invocation | number | string | ident }
 
-function_ident = @{ (!left_parentheses ~ !right_parentheses ~ ANY)+ }
+function_ident = @{ (!left_parentheses ~ !right_parentheses ~ !"," ~ ANY)+ }
 
 invocation = { function_ident ~ left_parentheses ~ (argument ~ ("," ~ argument)*)? ~ right_parentheses }
 

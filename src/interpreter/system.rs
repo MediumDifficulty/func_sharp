@@ -5,7 +5,8 @@ use strum_macros::EnumIter;
 
 use crate::signature;
 
-use super::{Data, FunctionScope, VariableScope, FunctionSignature};
+use super::scope::{FunctionScope, VariableScope};
+use super::{Data, FunctionSignature};
 
 #[derive(EnumIter, Debug, Clone, Copy)]
 pub enum SystemFunction {
@@ -15,6 +16,7 @@ pub enum SystemFunction {
     Str,
 }
 
+#[allow(unused_variables)] // For now
 impl SystemFunction {
     pub fn execute(
         &self,
@@ -27,20 +29,20 @@ impl SystemFunction {
                 println!(
                     "{}",
                     args.iter()
-                        .map(|arg| arg.borrow_mut().to_string())
+                        .map(|arg| arg.borrow().to_string())
                         .collect::<Vec<String>>()
                         .join(" ")
                 );
                 Data::Unit
             }
             SystemFunction::PrintlnNum => {
-                println!("{}", args[0].borrow_mut().number());
+                println!("{}", args[0].borrow().number());
                 Data::Unit
             }
             SystemFunction::Add => {
-                Data::Number(args[0].borrow_mut().number() + args[1].borrow_mut().number())
+                Data::Number(args[0].borrow().number() + args[1].borrow().number())
             }
-            SystemFunction::Str => Data::String(args[0].borrow_mut().to_string()),
+            SystemFunction::Str => Data::String(args[0].borrow().to_string()),
         }
     }
 

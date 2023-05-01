@@ -5,7 +5,8 @@ use once_cell::sync::Lazy;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
-use super::{Argument, FunctionScope, VariableScope, Data};
+use super::scope::{FunctionScope, VariableScope};
+use super::{Argument, Data, Invocation};
 
 pub static CONTEXT_FUNCTIONS: Lazy<HashMap<ContextSignature, ContextFunction>> = Lazy::new(|| {
     let mut map = HashMap::new();
@@ -26,6 +27,7 @@ pub struct ContextSignature {
 #[derive(EnumIter)]
 pub enum ContextFunction {
     Let,
+    Fn,
 }
 
 macro_rules! signature {
@@ -35,6 +37,11 @@ macro_rules! signature {
             args: vec![$(mem::discriminant(&$arg)),+],
         }
     };
+}
+
+pub enum ArgumentType {
+    Raw(Argument),
+    Data(Data),
 }
 
 impl ContextFunction {
@@ -48,14 +55,25 @@ impl ContextFunction {
             ContextFunction::Let => {
                 let evaluated = args[1].eval(function_scope, variable_scope);
                 variable_scope.insert(args[0].to_string(), evaluated);
-                return Data::Unit;
+                Data::Unit
             },
+            ContextFunction::Fn => {
+                Data::Unit
+            }
         }
     }
 
     fn signature(&self) -> ContextSignature {
         match self {
             ContextFunction::Let => signature!("let".into(), Argument::Ident("".into()), Argument::Data(super::Data::Unit)),
+            ContextFunction::Fn => signature!("fn".into(), Argument::Function(Invocation::default())),
+        }
+    }
+
+    fn repeating(&self) -> bool {
+        match self {
+            ContextFunction::Let => false,
+            ContextFunction::Fn  => true,
         }
     }
 }
