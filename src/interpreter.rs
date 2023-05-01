@@ -1,29 +1,24 @@
 mod context;
 mod system;
 mod scope;
+mod consts;
 
-use std::{cell::RefCell, collections::HashMap, mem::Discriminant, rc::Rc};
+use std::{cell::RefCell, mem::Discriminant, rc::Rc};
 
 use pest::iterators::Pair;
 use std::mem;
-use strum::IntoEnumIterator;
 
 use crate::parser;
 
-use self::{system::SystemFunction, context::ContextSignature, scope::{FunctionScope, VariableScope}};
+use self::{system::SystemFunction, context::{ContextFunction}, scope::{FunctionScope, VariableScope, FunctionSignature}};
 
-#[derive(Debug, PartialEq, Eq, Hash)]
-pub struct FunctionSignature {
-    name: String,
-    args: Vec<Discriminant<Data>>,
-}
-
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum FunctionDefinition {
     System(SystemFunction),
+    Context(ContextFunction),
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Invocation {
     name: String,
     args: Vec<Argument>,
@@ -38,7 +33,7 @@ pub enum Data {
     Unit,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Argument {
     Function(Invocation),
     Data(Data),
@@ -73,51 +68,24 @@ fn execute_function(
 
 #[macro_export]
 macro_rules! signature {
-    ($name:expr, $($arg:expr),+) => {
+    ($name:expr, $return_type:expr, $repeating:expr, $($arg:expr),+) => {
         FunctionSignature {
             name: $name,
-            args: vec![$(mem::discriminant(&$arg)),+],
+            return_type: mem::discriminant(&$return_type),
+            repeating: $repeating,
+            args: vec![$($arg),+],
         }
     };
 }
 
 impl Invocation {
     pub fn evaluate(&self, function_scope: &mut FunctionScope, variable_scope: &mut VariableScope) -> Data {
-        let context_signature = ContextSignature {
-            name: self.name.clone(),
-            args: self.args.iter().map(mem::discriminant).collect::<Vec<_>>(),
-        };
+        let got = function_scope.get(&self.name, &self.args, function_scope, variable_scope).cloned();
 
-        if let Some(function) = context::CONTEXT_FUNCTIONS.get(&context_signature) {
-            return function.execute(&self.args, function_scope, variable_scope);
-        }
-
-        let args = self
-            .args
-            .iter()
-            .map(|arg| arg.eval(function_scope, variable_scope))
-            .collect::<Vec<_>>();
-        let args_signature = args
-            .iter()
-            .map(|arg| mem::discriminant(&*arg.borrow()))
-            .collect::<Vec<_>>();
-
-        let signature = FunctionSignature {
-            name: self.name.clone(),
-            args: args_signature,
-        };
-
-        // println!("{}", self.name);
-        match *function_scope.get(&signature).unwrap_or_else(|| panic!("Function not found: {}", self.name)) {
-            FunctionDefinition::System(function) => function.execute(
-                &self
-                    .args
-                    .iter()
-                    .map(|e| e.eval(function_scope, variable_scope))
-                    .collect::<Vec<Rc<RefCell<Data>>>>(),
-                function_scope,
-                variable_scope,
-            ),
+        if let Some(function) = got {
+            function.execute(&self.args, function_scope, variable_scope)
+        } else {
+            panic!("Function not found: {}", self.name);
         }
     }
 }
@@ -150,8 +118,15 @@ impl Argument {
                 _ => variable_scope
                     .get(ident)
                     .expect("Variable not found")
-                    .clone(),
             },
+        }
+    }
+
+    pub fn evaluated_discriminant(&self, function_scope: &FunctionScope, variable_scope: &VariableScope) -> Discriminant<Data> {
+        match self {
+            Argument::Function(func) => function_scope.get(&func.name, &func.args, function_scope, variable_scope).expect("Function not found").signature().return_type,
+            Argument::Data(data) => mem::discriminant(data),
+            Argument::Ident(ident) => mem::discriminant(&*variable_scope.get(ident).expect("Variable not found").borrow()),
         }
     }
 }
@@ -198,6 +173,22 @@ impl ToString for Data {
             Data::Boolean(b) => b.to_string(),
             Data::Unit => "()".to_string(),
             Data::Ident(s) => s.clone(),
+        }
+    }
+}
+
+impl FunctionDefinition {
+    fn signature(&self) -> FunctionSignature {
+        match self {
+            FunctionDefinition::System(func) => func.signature(),
+            FunctionDefinition::Context(func) => func.signature(),
+        }
+    }
+
+    pub fn execute(&self, args: &[Argument], function_scope: &mut FunctionScope, variable_scope: &mut VariableScope) -> Data {
+        match self {
+            FunctionDefinition::System(func) => func.execute(&args.iter().map(|arg| arg.eval(function_scope, variable_scope)).collect::<Vec<_>>(), function_scope, variable_scope),
+            FunctionDefinition::Context(func) => func.execute(&context::to_context_args(args, &func.signature(), function_scope, variable_scope), function_scope, variable_scope)
         }
     }
 }

@@ -5,8 +5,9 @@ use strum_macros::EnumIter;
 
 use crate::signature;
 
-use super::scope::{FunctionScope, VariableScope};
-use super::{Data, FunctionSignature};
+use super::consts::{string, number};
+use super::scope::{FunctionScope, VariableScope, FunctionSignature};
+use super::{Data};
 
 #[derive(EnumIter, Debug, Clone, Copy)]
 pub enum SystemFunction {
@@ -48,10 +49,10 @@ impl SystemFunction {
 
     pub fn signature(&self) -> FunctionSignature {
         match self {
-            SystemFunction::Println => signature!("println".into(), Data::String("".to_string())),
-            SystemFunction::PrintlnNum => signature!("println".into(), Data::Number(0.)),
-            SystemFunction::Add => signature!("+".into(), Data::Number(0.), Data::Number(0.)),
-            SystemFunction::Str => signature!("str".into(), Data::Number(0.)),
+            SystemFunction::Println => signature!("println".into(), Data::Unit, false, string()),
+            SystemFunction::PrintlnNum => signature!("println".into(), Data::Unit, false, number()),
+            SystemFunction::Add => signature!("+".into(), Data::Number(0.), false, number(), number()),
+            SystemFunction::Str => signature!("str".into(), Data::String("".into()), false, number()),
         }
     }
 }
