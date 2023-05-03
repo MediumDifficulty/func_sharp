@@ -31,31 +31,60 @@ pub struct VariableScope {
 
 impl FunctionScope {
     pub fn get(&self, name: &str, args: &[Argument],  function_scope: &FunctionScope, variable_scope: &VariableScope) -> Option<&FunctionDefinition> {
-        for function in self.scope.iter() {
+        self.scope.iter().find(|&function| {
             if function.signature().name != name {
-                continue;
+                return false;
             }
 
             let signature = function.signature();
 
-            let mut found = true;
-            for (i, arg) in signature.args.iter().enumerate() {
-                if !match arg {
-                    SignatureArgument::Raw => args.get(i).is_some(),
-                    SignatureArgument::Data(data) => args.get(i)?.evaluated_discriminant(function_scope, variable_scope) == *data,
-                    SignatureArgument::Any => args.get(i).is_some()
-                } {
-                    found = false;
-                    break;
+            for (i, arg) in args.iter().enumerate() {
+                let corresponding = if signature.repeating {
+                    Some(&signature.args[i.min(signature.args.len() - 1)])
+                } else {
+                    signature.args.get(i)
+                };
+
+                if let Some(corresponding) = corresponding {
+                    if !match corresponding {
+                        SignatureArgument::Data(data) => arg.evaluated_discriminant(function_scope, variable_scope) == *data,
+                        _ => true
+                    } {
+                        return false;
+                    }
+                } else {
+                    return false
                 }
             }
 
-            if found {
-                return Some(function);
-            }
-        }
+            true
+        })
 
-        None
+        // for function in self.scope.iter() {
+        //     if function.signature().name != name {
+        //         continue;
+        //     }
+
+        //     let signature = function.signature();
+
+        //     let mut found = true;
+        //     for (i, arg) in signature.args.iter().enumerate() {
+        //         if !match arg {
+        //             SignatureArgument::Raw => args.get(i).is_some(),
+        //             SignatureArgument::Data(data) => args.get(i)?.evaluated_discriminant(function_scope, variable_scope) == *data,
+        //             SignatureArgument::Any => args.get(i).is_some()
+        //         } {
+        //             found = false;
+        //             break;
+        //         }
+        //     }
+
+        //     if found {
+        //         return Some(function);
+        //     }
+        // }
+
+        // None
     }
 }
 

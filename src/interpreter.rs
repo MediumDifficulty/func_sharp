@@ -85,7 +85,7 @@ impl Invocation {
         if let Some(function) = got {
             function.execute(&self.args, function_scope, variable_scope)
         } else {
-            panic!("Function not found: {}", self.name);
+            panic!("Function not found: {} with signature: {:?}", self.name, self.args);
         }
     }
 }
