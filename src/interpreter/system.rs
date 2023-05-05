@@ -1,21 +1,22 @@
-use std::{cell::RefCell, rc::Rc};
+use std::io::stdin;
 use std::mem;
+use std::{cell::RefCell, rc::Rc};
 
 use strum_macros::EnumIter;
 
 use crate::signature;
 
-use super::consts::number;
-use super::scope::{FunctionScope, VariableScope, FunctionSignature};
+use super::consts::{number, string};
+use super::scope::{FunctionScope, FunctionSignature, VariableScope};
 use super::Data;
 
 #[derive(EnumIter, Debug, Clone, Copy)]
 pub enum SystemFunction {
-    Add,
-    Str,
+    Stdin,
+    Number,
+    Trim,
 }
 
-#[allow(unused_variables)] // For now
 impl SystemFunction {
     pub fn execute(
         &self,
@@ -24,17 +25,21 @@ impl SystemFunction {
         variable_scope: &mut VariableScope,
     ) -> Data {
         match self {
-            SystemFunction::Add => {
-                Data::Number(args[0].borrow().number() + args[1].borrow().number())
-            }
-            SystemFunction::Str => Data::String(args[0].borrow().to_string()),
+            Self::Stdin => Data::String({
+                let mut string = String::new();
+                stdin().read_line(&mut string).unwrap();
+                string
+            }),
+            SystemFunction::Number => Data::Number(args[0].borrow().to_string().parse::<f64>().unwrap()),
+            SystemFunction::Trim => Data::String(args[0].borrow().to_string().trim().into()),
         }
     }
 
     pub fn signature(&self) -> FunctionSignature {
         match self {
-            SystemFunction::Add => signature!("+".into(), Data::Number(0.), false, number(), number()),
-            SystemFunction::Str => signature!("str".into(), Data::String("".into()), false, number()),
+            SystemFunction::Stdin => signature!("stdin".into(), Data::String("".into()), false),
+            SystemFunction::Number => signature!("number".into(), Data::Number(0.), false, string()),
+            Self::Trim => signature!("trim".into(), Data::String("".into()), false, string()),
         }
     }
 }

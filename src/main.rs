@@ -30,5 +30,8 @@ fn main() {
 
     let start_execution_time = Instant::now();
     interpreter::execute(program);
-    println!("Execution time: {}ms", start_execution_time.elapsed().as_millis());
+    println!(
+        "Execution time: {}ms",
+        start_execution_time.elapsed().as_millis()
+    );
 }

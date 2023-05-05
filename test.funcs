@@ -1,11 +1,15 @@
 let(a, 15);
 
 println("Hello, world!");
-println(str(+(1, -4.)));
 println(+(1, 5));
 println(+(a, 15));
 
 let(pi, 3.1415);
 println("Two times pi =", +(pi,pi));
 println("1 + 2 + 3 =", +(1,+(2,3)));
+println("1 + 2 + 3 =", +(1, 2, 3, 5, 7, 9, 11));
 println(+(pi, +(pi, pi)));
+println(*(1, 2, 3, 4, 5, 6, 7, 8, 9));
+
+let(in, stdin());
+println(/(/(number(trim(in)), 2), 2));

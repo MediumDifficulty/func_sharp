@@ -63,7 +63,6 @@ fn execute_function(
     let parsed = Invocation::from(function);
 
     parsed.evaluate(function_scope, variable_scope);
-    // println!("{:?}", parsed);
 }
 
 #[macro_export]
@@ -74,6 +73,14 @@ macro_rules! signature {
             return_type: mem::discriminant(&$return_type),
             repeating: $repeating,
             args: vec![$($arg),+],
+        }
+    };
+    ($name:expr, $return_type:expr, $repeating:expr) => {
+        FunctionSignature {
+            name: $name,
+            return_type: mem::discriminant(&$return_type),
+            repeating: $repeating,
+            args: Vec::new(),
         }
     };
 }
@@ -124,7 +131,7 @@ impl Argument {
 
     pub fn evaluated_discriminant(&self, function_scope: &FunctionScope, variable_scope: &VariableScope) -> Discriminant<Data> {
         match self {
-            Argument::Function(func) => function_scope.get(&func.name, &func.args, function_scope, variable_scope).expect("Function not found").signature().return_type,
+            Argument::Function(func) => function_scope.get(&func.name, &func.args, function_scope, variable_scope).unwrap_or_else(|| panic!("Function not found: {}", func.name)).signature().return_type,
             Argument::Data(data) => mem::discriminant(data),
             Argument::Ident(ident) => mem::discriminant(&*variable_scope.get(ident).expect("Variable not found").borrow()),
         }
@@ -143,7 +150,6 @@ impl ToString for Argument {
 impl From<Pair<'_, parser::Rule>> for Argument {
     fn from(value: Pair<'_, parser::Rule>) -> Self {
         let value = value.into_inner().next().unwrap();
-        // println!("{value:?} {}", value.as_str());
         match value.as_rule() {
             parser::Rule::string => Argument::Data(Data::String(
                 value.into_inner().next().unwrap().as_str().to_string(),
@@ -161,6 +167,13 @@ impl Data {
         match self {
             Data::Number(n) => *n,
             _ => panic!("Data is not a number"),
+        }
+    }
+
+    fn boolean(&self) -> bool {
+        match self {
+            Data::Boolean(b) => *b,
+            _ => panic!("Data is not a boolean"),
         }
     }
 }

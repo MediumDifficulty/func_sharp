@@ -1,11 +1,11 @@
-use std::{collections::HashMap, cell::RefCell, rc::Rc};
 use std::mem::Discriminant;
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use strum::IntoEnumIterator;
 
-use super::Argument;
 use super::context::ContextFunction;
-use super::{FunctionDefinition, Data, system::SystemFunction};
+use super::Argument;
+use super::{system::SystemFunction, Data, FunctionDefinition};
 
 pub struct FunctionSignature {
     pub name: String,
@@ -30,7 +30,13 @@ pub struct VariableScope {
 }
 
 impl FunctionScope {
-    pub fn get(&self, name: &str, args: &[Argument],  function_scope: &FunctionScope, variable_scope: &VariableScope) -> Option<&FunctionDefinition> {
+    pub fn get(
+        &self,
+        name: &str,
+        args: &[Argument],
+        function_scope: &FunctionScope,
+        variable_scope: &VariableScope,
+    ) -> Option<&FunctionDefinition> {
         self.scope.iter().find(|&function| {
             if function.signature().name != name {
                 return false;
@@ -47,55 +53,31 @@ impl FunctionScope {
 
                 if let Some(corresponding) = corresponding {
                     if !match corresponding {
-                        SignatureArgument::Data(data) => arg.evaluated_discriminant(function_scope, variable_scope) == *data,
-                        _ => true
+                        SignatureArgument::Data(data) => {
+                            arg.evaluated_discriminant(function_scope, variable_scope) == *data
+                        }
+                        _ => true,
                     } {
                         return false;
                     }
                 } else {
-                    return false
+                    return false;
                 }
             }
 
             true
         })
-
-        // for function in self.scope.iter() {
-        //     if function.signature().name != name {
-        //         continue;
-        //     }
-
-        //     let signature = function.signature();
-
-        //     let mut found = true;
-        //     for (i, arg) in signature.args.iter().enumerate() {
-        //         if !match arg {
-        //             SignatureArgument::Raw => args.get(i).is_some(),
-        //             SignatureArgument::Data(data) => args.get(i)?.evaluated_discriminant(function_scope, variable_scope) == *data,
-        //             SignatureArgument::Any => args.get(i).is_some()
-        //         } {
-        //             found = false;
-        //             break;
-        //         }
-        //     }
-
-        //     if found {
-        //         return Some(function);
-        //     }
-        // }
-
-        // None
     }
 }
 
 impl Default for FunctionScope {
     fn default() -> Self {
         let mut scope = Vec::new();
-    
+
         for function in SystemFunction::iter() {
             scope.push(FunctionDefinition::System(function));
         }
-        
+
         for function in ContextFunction::iter() {
             scope.push(FunctionDefinition::Context(function));
         }
