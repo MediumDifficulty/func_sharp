@@ -6,7 +6,7 @@ use strum_macros::EnumIter;
 
 use crate::signature;
 
-use super::consts::{number, string};
+use super::consts::{string, boolean};
 use super::scope::{FunctionScope, FunctionSignature, VariableScope};
 use super::Data;
 
@@ -15,6 +15,7 @@ pub enum SystemFunction {
     Stdin,
     Number,
     Trim,
+    Not,
 }
 
 impl SystemFunction {
@@ -32,6 +33,7 @@ impl SystemFunction {
             }),
             SystemFunction::Number => Data::Number(args[0].borrow().to_string().parse::<f64>().unwrap()),
             SystemFunction::Trim => Data::String(args[0].borrow().to_string().trim().into()),
+            SystemFunction::Not => Data::Boolean(!args[0].borrow().boolean()),
         }
     }
 
@@ -39,7 +41,8 @@ impl SystemFunction {
         match self {
             SystemFunction::Stdin => signature!("stdin".into(), Data::String("".into()), false),
             SystemFunction::Number => signature!("number".into(), Data::Number(0.), false, string()),
-            Self::Trim => signature!("trim".into(), Data::String("".into()), false, string()),
+            SystemFunction::Trim => signature!("trim".into(), Data::String("".into()), false, string()),
+            SystemFunction::Not => signature!("!".into(), Data::Boolean(false), false, boolean()),
         }
     }
 }

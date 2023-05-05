@@ -6,7 +6,7 @@ use strum_macros::EnumIter;
 
 use crate::signature;
 
-use super::consts::{any, number, raw};
+use super::consts::{any, number, raw, boolean};
 use super::scope::{FunctionScope, FunctionSignature, SignatureArgument, VariableScope};
 use super::{Argument, Data};
 
@@ -19,6 +19,12 @@ pub enum ContextFunction {
     Mul,
     Div,
     Mod,
+    If,
+    Cmp,
+    Assign,
+    And,
+    Or,
+    Xor,
 }
 
 pub enum ContextArgument {
@@ -80,6 +86,28 @@ impl ContextFunction {
             ContextFunction::Mod => {
                 operator_impl(|acc, arg| acc % arg.data().borrow().number(), args)
             }
+            ContextFunction::If => {
+                let mut iter = args.iter();
+                if iter.next().unwrap().data().borrow().boolean() {
+                    let mut cloned_scope = variable_scope.clone();
+                    for invocation in iter {
+                        invocation.raw().eval(function_scope, &mut cloned_scope);
+                    }
+                }
+
+                Data::Unit
+            }
+            ContextFunction::Cmp => {
+                Data::Boolean(args[0].data() == args[1].data())
+            }
+            ContextFunction::Assign => {
+                *variable_scope.get(args[0].raw().to_string().as_str()).expect("Variable not found").borrow_mut() = args[1].data().borrow().clone();
+                Data::Unit
+            }
+            ContextFunction::And => Data::Boolean(args.iter().all(|arg| arg.data().borrow().boolean())),
+            ContextFunction::Or => Data::Boolean(args.iter().any(|arg| arg.data().borrow().boolean())),
+            ContextFunction::Xor => Data::Boolean(args.iter().fold(0, |acc, arg| acc + arg.data().borrow().boolean() as usize) == 1),
+            
         }
     }
 
@@ -92,6 +120,12 @@ impl ContextFunction {
             ContextFunction::Mul => signature!("*".into(), Data::Number(0.), true, number()),
             ContextFunction::Div => signature!("/".into(), Data::Number(0.), true, number()),
             ContextFunction::Mod => signature!("%".into(), Data::Number(0.), true, number()),
+            ContextFunction::If => signature!("if".into(), Data::Unit, true, boolean(), raw()),
+            ContextFunction::Cmp => signature!("==".into(), Data::Boolean(false), false, any(), any()),
+            ContextFunction::Assign => signature!("=".into(), Data::Unit, false, raw(), any()),
+            ContextFunction::And => signature!("&&".into(), Data::Boolean(false), true, boolean()),
+            ContextFunction::Or => signature!("||".into(), Data::Boolean(false), true, boolean()),
+            ContextFunction::Xor => signature!("^".into(), Data::Boolean(false), true, boolean()),
         }
     }
 }

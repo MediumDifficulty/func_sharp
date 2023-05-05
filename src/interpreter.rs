@@ -24,7 +24,7 @@ pub struct Invocation {
     args: Vec<Argument>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Data {
     String(String),
     Number(f64),
@@ -42,7 +42,7 @@ pub enum Argument {
 
 pub fn execute(program: Pair<parser::Rule>) {
     let mut function_scope = FunctionScope::default();
-    let mut variable_scope = VariableScope::default();
+    let mut variable_scope = scope::default_variable_scope();
 
     for invocation in program.into_inner() {
         match invocation.as_rule() {
@@ -119,12 +119,11 @@ impl Argument {
             Argument::Function(invocation) => Rc::new(RefCell::new(
                 invocation.evaluate(function_scope, variable_scope),
             )),
-            Argument::Ident(ident) => match ident.as_str() {
-                "true" => Rc::new(RefCell::new(Data::Boolean(true))),
-                "false" => Rc::new(RefCell::new(Data::Boolean(false))),
-                _ => variable_scope
+            Argument::Ident(ident) => {
+                variable_scope
                     .get(ident)
                     .expect("Variable not found")
+                    .clone()
             },
         }
     }

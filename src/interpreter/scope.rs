@@ -24,10 +24,7 @@ pub struct FunctionScope {
     scope: Vec<FunctionDefinition>,
 }
 
-#[derive(Default)]
-pub struct VariableScope {
-    scope: HashMap<String, Rc<RefCell<Data>>>,
-}
+pub type VariableScope = HashMap<String, Rc<RefCell<Data>>>;
 
 impl FunctionScope {
     pub fn get(
@@ -86,12 +83,11 @@ impl Default for FunctionScope {
     }
 }
 
-impl VariableScope {
-    pub fn insert(&mut self, name: String, data: Rc<RefCell<Data>>) {
-        self.scope.insert(name, data);
-    }
+pub fn default_variable_scope() -> VariableScope {
+    let mut scope = HashMap::new();
 
-    pub fn get(&self, name: &str) -> Option<Rc<RefCell<Data>>> {
-        self.scope.get(name).cloned()
-    }
+    scope.insert("true".into(), Rc::new(RefCell::new(Data::Boolean(true))));
+    scope.insert("false".into(), Rc::new(RefCell::new(Data::Boolean(false))));
+
+    scope
 }

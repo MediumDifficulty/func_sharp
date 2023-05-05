@@ -18,7 +18,6 @@ pub fn any() -> SignatureArgument {
     SignatureArgument::Any
 }
 
-signature_fn!(unit, Data::Unit);
 signature_fn!(string, Data::String("".to_string()));
 signature_fn!(number, Data::Number(0.));
 signature_fn!(boolean, Data::Boolean(false));
