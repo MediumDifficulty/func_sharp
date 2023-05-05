@@ -10,6 +10,7 @@ use super::consts::{any, number, raw, boolean};
 use super::scope::{FunctionScope, FunctionSignature, SignatureArgument, VariableScope};
 use super::{Argument, Data};
 
+/// A function definition that has access to the raw [`Argument]s
 #[derive(EnumIter, Debug, Clone)]
 pub enum ContextFunction {
     Println,
@@ -27,6 +28,8 @@ pub enum ContextFunction {
     Xor,
 }
 
+
+/// The argument type for [`ContextFunction`]
 pub enum ContextArgument {
     Raw(Argument),
     Data(Rc<RefCell<Data>>),

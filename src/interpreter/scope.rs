@@ -5,8 +5,9 @@ use strum::IntoEnumIterator;
 
 use super::context::ContextFunction;
 use super::Argument;
-use super::{system::SystemFunction, Data, FunctionDefinition};
+use super::{system::SystemFunction, Data, FunctionSource};
 
+/// The signature of a [`FunctionSource`]
 pub struct FunctionSignature {
     pub name: String,
     pub args: Vec<SignatureArgument>,
@@ -14,16 +15,19 @@ pub struct FunctionSignature {
     pub return_type: Discriminant<Data>,
 }
 
+/// The way of identifying an [`Argument`] without the data used by [`FunctionSignature`]
 pub enum SignatureArgument {
     Raw,
     Any,
     Data(Discriminant<Data>),
 }
 
+/// Contains a list of all defined functions
 pub struct FunctionScope {
-    scope: Vec<FunctionDefinition>,
+    scope: Vec<FunctionSource>,
 }
 
+// Contains all defined Variables
 pub type VariableScope = HashMap<String, Rc<RefCell<Data>>>;
 
 impl FunctionScope {
@@ -33,7 +37,7 @@ impl FunctionScope {
         args: &[Argument],
         function_scope: &FunctionScope,
         variable_scope: &VariableScope,
-    ) -> Option<&FunctionDefinition> {
+    ) -> Option<&FunctionSource> {
         self.scope.iter().find(|&function| {
             if function.signature().name != name {
                 return false;
@@ -72,11 +76,11 @@ impl Default for FunctionScope {
         let mut scope = Vec::new();
 
         for function in SystemFunction::iter() {
-            scope.push(FunctionDefinition::System(function));
+            scope.push(FunctionSource::System(function));
         }
 
         for function in ContextFunction::iter() {
-            scope.push(FunctionDefinition::Context(function));
+            scope.push(FunctionSource::Context(function));
         }
 
         Self { scope }

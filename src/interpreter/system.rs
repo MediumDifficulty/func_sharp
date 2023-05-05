@@ -10,6 +10,8 @@ use super::consts::{string, boolean};
 use super::scope::{FunctionScope, FunctionSignature, VariableScope};
 use super::Data;
 
+/// A function that has the same power as a user defined function but is hard-coded.
+/// This means it does not have access to the raw [`Argument`](super::Argument) but rather the parsed [`Data`]
 #[derive(EnumIter, Debug, Clone, Copy)]
 pub enum SystemFunction {
     Stdin,

@@ -12,18 +12,21 @@ use crate::parser;
 
 use self::{system::SystemFunction, context::{ContextFunction}, scope::{FunctionScope, VariableScope, FunctionSignature}};
 
+/// The different sources for a function
 #[derive(Debug, Clone)]
-pub enum FunctionDefinition {
+pub enum FunctionSource {
     System(SystemFunction),
     Context(ContextFunction),
 }
 
+/// The invocation of a function (contains the name and raw [Argument]s)
 #[derive(Debug, Default, Clone)]
 pub struct Invocation {
     name: String,
     args: Vec<Argument>,
 }
 
+/// Any data that can be stored
 #[derive(Debug, Clone, PartialEq)]
 pub enum Data {
     String(String),
@@ -33,6 +36,7 @@ pub enum Data {
     Unit,
 }
 
+/// The raw argument
 #[derive(Debug, Clone)]
 pub enum Argument {
     Function(Invocation),
@@ -189,18 +193,18 @@ impl ToString for Data {
     }
 }
 
-impl FunctionDefinition {
+impl FunctionSource {
     fn signature(&self) -> FunctionSignature {
         match self {
-            FunctionDefinition::System(func) => func.signature(),
-            FunctionDefinition::Context(func) => func.signature(),
+            FunctionSource::System(func) => func.signature(),
+            FunctionSource::Context(func) => func.signature(),
         }
     }
 
     pub fn execute(&self, args: &[Argument], function_scope: &mut FunctionScope, variable_scope: &mut VariableScope) -> Data {
         match self {
-            FunctionDefinition::System(func) => func.execute(&args.iter().map(|arg| arg.eval(function_scope, variable_scope)).collect::<Vec<_>>(), function_scope, variable_scope),
-            FunctionDefinition::Context(func) => func.execute(&context::to_context_args(args, &func.signature(), function_scope, variable_scope), function_scope, variable_scope)
+            FunctionSource::System(func) => func.execute(&args.iter().map(|arg| arg.eval(function_scope, variable_scope)).collect::<Vec<_>>(), function_scope, variable_scope),
+            FunctionSource::Context(func) => func.execute(&context::to_context_args(args, &func.signature(), function_scope, variable_scope), function_scope, variable_scope)
         }
     }
 }
