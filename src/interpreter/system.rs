@@ -34,7 +34,7 @@ impl SystemFunction {
         &self,
         args: &[Rc<RefCell<Data>>],
         function_scope: &mut FunctionScope,
-        variable_scope: &mut VariableScope,
+        variable_scope: Rc<RefCell<VariableScope>>,
     ) -> Data {
         match self {
             Self::Stdin => Data::String({

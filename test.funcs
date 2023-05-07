@@ -1,14 +1,12 @@
-println(!(&&(true, true, true, true)));
+let(global, 10);
 
-let(in, number(trim(stdin())));
-println(/(/(in, 2), 2));
-
-let(out, 1);
-if(==(in, 10),
-    println("You win!", in),
-    let(b, number(trim(stdin()))),
-    println("b:", b),
-    =(out, b)
+fn(add, void, a, num, b, num,
+    println(+(a, b)),
+    println(-(a, b, global)),
+    =(global, b)
 );
 
-println(out);
+if(true,
+    add(12, 13),
+    println(global)
+);

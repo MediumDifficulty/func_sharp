@@ -7,6 +7,7 @@ use super::context::ContextFunction;
 use super::Argument;
 use super::{system::SystemFunction, Data, FunctionSource};
 
+#[derive(Debug, Clone)]
 /// The signature of a [`FunctionSource`]
 pub struct FunctionSignature {
     pub name: String,
@@ -15,6 +16,7 @@ pub struct FunctionSignature {
     pub return_type: Discriminant<Data>,
 }
 
+#[derive(Debug, Clone)]
 /// The way of identifying an [`Argument`] without the data used by [`FunctionSignature`]
 pub enum SignatureArgument {
     Raw,
@@ -36,7 +38,7 @@ impl FunctionScope {
         name: &str,
         args: &[Argument],
         function_scope: &FunctionScope,
-        variable_scope: &VariableScope,
+        variable_scope: Rc<RefCell<VariableScope>>,
     ) -> Option<&FunctionSource> {
         self.scope.iter().find(|&function| {
             if function.signature().name != name {
@@ -55,7 +57,7 @@ impl FunctionScope {
                 if let Some(corresponding) = corresponding {
                     if !match corresponding {
                         SignatureArgument::Data(data) => {
-                            arg.evaluated_discriminant(function_scope, variable_scope) == *data
+                            arg.evaluated_discriminant(function_scope, variable_scope.clone()) == *data
                         }
                         _ => true,
                     } {
@@ -68,6 +70,10 @@ impl FunctionScope {
 
             true
         })
+    }
+
+    pub fn insert(&mut self, function: FunctionSource) {
+        self.scope.push(function);
     }
 }
 
