@@ -6,7 +6,7 @@ use strum_macros::EnumIter;
 
 use crate::signature;
 
-use super::consts::{any, raw, boolean};
+use super::consts::{any, boolean, raw};
 use super::defined::DefinedFunction;
 use super::scope::{FunctionScope, FunctionSignature, SignatureArgument, VariableScope};
 use super::{Argument, Data, FunctionSource};
@@ -22,7 +22,6 @@ pub enum ContextFunction {
     While,
     Fn,
 }
-
 
 /// The argument type for [`ContextFunction`]
 pub enum ContextArgument {
@@ -57,7 +56,9 @@ impl ContextFunction {
         match self {
             ContextFunction::Let => {
                 let evaluated = args[1].data();
-                variable_scope.borrow_mut().insert(args[0].raw().ident(), evaluated);
+                variable_scope
+                    .borrow_mut()
+                    .insert(args[0].raw().ident(), evaluated);
                 Data::Unit
             }
             ContextFunction::If => {
@@ -65,33 +66,74 @@ impl ContextFunction {
                 if iter.next().unwrap().data().borrow().boolean() {
                     let cloned_scope = Rc::new(RefCell::new(variable_scope.borrow().clone()));
                     for invocation in iter {
-                        invocation.raw().eval(function_scope, cloned_scope.clone(), global_scope.clone());
+                        if let Data::ControlFlow(control) = invocation
+                            .raw()
+                            .eval(function_scope, cloned_scope.clone(), global_scope.clone())
+                            .borrow()
+                            .clone()
+                        {
+                            return Data::ControlFlow(control);
+                        }
                     }
                 }
 
                 Data::Unit
             }
-            ContextFunction::Cmp => {
-                Data::Boolean(args[0].data() == args[1].data())
-            }
+            ContextFunction::Cmp => Data::Boolean(args[0].data() == args[1].data()),
             ContextFunction::Assign => {
-                *variable_scope.borrow().get(args[0].raw().ident().as_str()).expect("Variable not found").borrow_mut() = args[1].data().borrow().clone();
+                *variable_scope
+                    .borrow()
+                    .get(args[0].raw().ident().as_str())
+                    .expect("Variable not found")
+                    .borrow_mut() = args[1].data().borrow().clone();
                 Data::Unit
             }
             ContextFunction::While => {
                 let mut iter = args.iter();
                 let predicate = iter.next().unwrap().raw().clone();
                 let body = iter.map(|e| e.raw()).collect::<Vec<_>>();
-                while predicate.eval(function_scope, variable_scope.clone(), global_scope.clone()).borrow().boolean() {
+
+                let mut continued = false;
+
+                while predicate
+                    .eval(function_scope, variable_scope.clone(), global_scope.clone())
+                    .borrow()
+                    .boolean()
+                {
+                    if continued {
+                        continued = false;
+                        continue;
+                    }
+
                     for &invocation in body.iter() {
-                        invocation.eval(function_scope, variable_scope.clone(), global_scope.clone());
+                        if let Data::ControlFlow(control) = invocation
+                            .eval(function_scope, variable_scope.clone(), global_scope.clone())
+                            .borrow()
+                            .clone()
+                        {
+                            match control {
+                                super::ControlFlow::Break => return Data::Unit,
+                                super::ControlFlow::Continue => {
+                                    continued = true;
+                                    break;
+                                }
+                                super::ControlFlow::Return(data) => return data.borrow().clone(), // TODO: In future have functions return references
+                            }
+                        }
                     }
                 }
 
                 Data::Unit
             }
             ContextFunction::Fn => {
-                function_scope.insert(FunctionSource::Defined(DefinedFunction::new(&args.iter().map(|arg| arg.raw()).cloned().collect::<Vec<_>>(), global_scope)));
+                function_scope.insert(FunctionSource::Defined(DefinedFunction::new(
+                    &args
+                        .iter()
+                        .map(|arg| arg.raw())
+                        .cloned()
+                        .collect::<Vec<_>>(),
+                    global_scope,
+                )));
                 Data::Unit
             }
         }
@@ -101,7 +143,9 @@ impl ContextFunction {
         match self {
             ContextFunction::Let => signature!("let".into(), Data::Unit, false, raw(), any()),
             ContextFunction::If => signature!("if".into(), Data::Unit, true, boolean(), raw()),
-            ContextFunction::Cmp => signature!("==".into(), Data::Boolean(false), false, any(), any()),
+            ContextFunction::Cmp => {
+                signature!("==".into(), Data::Boolean(false), false, any(), any())
+            }
             ContextFunction::Assign => signature!("=".into(), Data::Unit, false, raw(), any()),
             ContextFunction::While => signature!("while".into(), Data::Unit, true, raw(), raw()),
             ContextFunction::Fn => signature!("fn".into(), Data::Unit, true, raw(), raw()),
@@ -120,13 +164,17 @@ pub fn to_context_args(
         .enumerate()
         .map(
             |(i, arg)| match signature.args[i.min(signature.args.len() - 1)] {
-                SignatureArgument::Any => {
-                    ContextArgument::Data(arg.eval(function_scope, variable_scope.clone(), global_scope.clone()))
-                }
+                SignatureArgument::Any => ContextArgument::Data(arg.eval(
+                    function_scope,
+                    variable_scope.clone(),
+                    global_scope.clone(),
+                )),
                 SignatureArgument::Raw => ContextArgument::Raw(arg.clone()),
-                SignatureArgument::Data(_) => {
-                    ContextArgument::Data(arg.eval(function_scope, variable_scope.clone(), global_scope.clone()))
-                }
+                SignatureArgument::Data(_) => ContextArgument::Data(arg.eval(
+                    function_scope,
+                    variable_scope.clone(),
+                    global_scope.clone(),
+                )),
             },
         )
         .collect()

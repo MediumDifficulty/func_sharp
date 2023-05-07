@@ -1,8 +1,8 @@
-mod context;
-mod system;
-mod scope;
 mod consts;
+mod context;
 mod defined;
+mod scope;
+mod system;
 
 use std::{cell::RefCell, mem::Discriminant, rc::Rc};
 
@@ -11,7 +11,12 @@ use std::mem;
 
 use crate::parser;
 
-use self::{system::SystemFunction, context::{ContextFunction}, scope::{FunctionScope, VariableScope, FunctionSignature}, defined::DefinedFunction};
+use self::{
+    context::ContextFunction,
+    defined::DefinedFunction,
+    scope::{FunctionScope, FunctionSignature, VariableScope},
+    system::SystemFunction,
+};
 
 /// The different sources for a function
 #[derive(Debug, Clone)]
@@ -34,8 +39,15 @@ pub enum Data {
     String(String),
     Number(f64),
     Boolean(bool),
-    Ident(String),
+    ControlFlow(ControlFlow),
     Unit,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ControlFlow {
+    Break,
+    Continue,
+    Return(Rc<RefCell<Data>>),
 }
 
 /// The raw argument
@@ -53,7 +65,12 @@ pub fn execute(program: Pair<parser::Rule>) {
     for invocation in program.into_inner() {
         match invocation.as_rule() {
             parser::Rule::invocation => {
-                execute_function(invocation, &mut function_scope, variable_scope.clone(), variable_scope.clone());
+                execute_function(
+                    invocation,
+                    &mut function_scope,
+                    variable_scope.clone(),
+                    variable_scope.clone(),
+                );
             }
             parser::Rule::EOI => (),
             _ => unreachable!(),
@@ -93,13 +110,28 @@ macro_rules! signature {
 }
 
 impl Invocation {
-    pub fn evaluate(&self, function_scope: &mut FunctionScope, variable_scope: Rc<RefCell<VariableScope>>, global_scope: Rc<RefCell<VariableScope>>) -> Data {
-        let got = function_scope.get(&self.name, &self.args, function_scope, variable_scope.clone()).cloned();
+    pub fn evaluate(
+        &self,
+        function_scope: &mut FunctionScope,
+        variable_scope: Rc<RefCell<VariableScope>>,
+        global_scope: Rc<RefCell<VariableScope>>,
+    ) -> Data {
+        let got = function_scope
+            .get(
+                &self.name,
+                &self.args,
+                function_scope,
+                variable_scope.clone(),
+            )
+            .cloned();
 
         if let Some(function) = got {
             function.execute(&self.args, function_scope, variable_scope, global_scope)
         } else {
-            panic!("Function not found: {} with signature: {:?}", self.name, self.args);
+            panic!(
+                "Function not found: {} with signature: {:?}",
+                self.name, self.args
+            );
         }
     }
 }
@@ -124,38 +156,54 @@ impl Argument {
     ) -> Rc<RefCell<Data>> {
         match self {
             Argument::Data(data) => Rc::new(RefCell::new(data.clone())),
-            Argument::Function(invocation) => Rc::new(RefCell::new(
-                invocation.evaluate(function_scope, variable_scope, global_scope),
-            )),
-            Argument::Ident(ident) => {
-                variable_scope
-                    .borrow()
-                    .get(ident)
-                    .expect("Variable not found")
-                    .clone()
-            },
+            Argument::Function(invocation) => Rc::new(RefCell::new(invocation.evaluate(
+                function_scope,
+                variable_scope,
+                global_scope,
+            ))),
+            Argument::Ident(ident) => variable_scope
+                .borrow()
+                .get(ident)
+                .expect("Variable not found")
+                .clone(),
         }
     }
 
-    pub fn evaluated_discriminant(&self, function_scope: &FunctionScope, variable_scope: Rc<RefCell<VariableScope>>) -> Discriminant<Data> {
+    pub fn evaluated_discriminant(
+        &self,
+        function_scope: &FunctionScope,
+        variable_scope: Rc<RefCell<VariableScope>>,
+    ) -> Discriminant<Data> {
         match self {
-            Argument::Function(func) => function_scope.get(&func.name, &func.args, function_scope, variable_scope).unwrap_or_else(|| panic!("Function not found: {}", func.name)).signature().return_type,
+            Argument::Function(func) => {
+                function_scope
+                    .get(&func.name, &func.args, function_scope, variable_scope)
+                    .unwrap_or_else(|| panic!("Function not found: {}", func.name))
+                    .signature()
+                    .return_type
+            }
             Argument::Data(data) => mem::discriminant(data),
-            Argument::Ident(ident) => mem::discriminant(&*variable_scope.borrow().get(ident).expect("Variable not found").borrow()),
+            Argument::Ident(ident) => mem::discriminant(
+                &*variable_scope
+                    .borrow()
+                    .get(ident)
+                    .expect("Variable not found")
+                    .borrow(),
+            ),
         }
     }
 
     pub fn ident(&self) -> String {
         match self {
             Argument::Ident(i) => i.clone(),
-            _ => panic!("Argument is not an ident")
+            _ => panic!("Argument is not an ident"),
         }
     }
 
     pub fn invocation(&self) -> Invocation {
         match self {
             Argument::Function(f) => f.clone(),
-            _ => panic!("Argument is not a function")
+            _ => panic!("Argument is not a function"),
         }
     }
 }
@@ -197,8 +245,18 @@ impl ToString for Data {
             Data::String(s) => s.clone(),
             Data::Number(n) => n.to_string(),
             Data::Boolean(b) => b.to_string(),
+            Data::ControlFlow(c) => c.to_string(),
             Data::Unit => "()".to_string(),
-            Data::Ident(s) => s.clone(),
+        }
+    }
+}
+
+impl ToString for ControlFlow {
+    fn to_string(&self) -> String {
+        match self {
+            ControlFlow::Break => "break".into(),
+            ControlFlow::Continue => "continue".into(),
+            ControlFlow::Return(_) => "return".into(),
         }
     }
 }
@@ -212,11 +270,46 @@ impl FunctionSource {
         }
     }
 
-    pub fn execute(&self, args: &[Argument], function_scope: &mut FunctionScope, variable_scope: Rc<RefCell<VariableScope>>, global_scope: Rc<RefCell<VariableScope>>) -> Data {
+    pub fn execute(
+        &self,
+        args: &[Argument],
+        function_scope: &mut FunctionScope,
+        variable_scope: Rc<RefCell<VariableScope>>,
+        global_scope: Rc<RefCell<VariableScope>>,
+    ) -> Data {
         match self {
-            FunctionSource::System(func) => func.execute(&args.iter().map(|arg| arg.eval(function_scope, variable_scope.clone(), global_scope.clone())).collect::<Vec<_>>(), function_scope, variable_scope),
-            FunctionSource::Context(func) => func.execute(&context::to_context_args(args, &func.signature(), function_scope, variable_scope.clone(), global_scope.clone()), function_scope, variable_scope, global_scope),
-            FunctionSource::Defined(func) => func.execute(&args.iter().map(|arg| arg.eval(function_scope, variable_scope.clone(), global_scope.clone())).collect::<Vec<_>>(), function_scope, global_scope),
+            FunctionSource::System(func) => func.execute(
+                &args
+                    .iter()
+                    .map(|arg| {
+                        arg.eval(function_scope, variable_scope.clone(), global_scope.clone())
+                    })
+                    .collect::<Vec<_>>(),
+                function_scope,
+                variable_scope,
+            ),
+            FunctionSource::Context(func) => func.execute(
+                &context::to_context_args(
+                    args,
+                    &func.signature(),
+                    function_scope,
+                    variable_scope.clone(),
+                    global_scope.clone(),
+                ),
+                function_scope,
+                variable_scope,
+                global_scope,
+            ),
+            FunctionSource::Defined(func) => func.execute(
+                &args
+                    .iter()
+                    .map(|arg| {
+                        arg.eval(function_scope, variable_scope.clone(), global_scope.clone())
+                    })
+                    .collect::<Vec<_>>(),
+                function_scope,
+                global_scope,
+            ),
         }
     }
 }

@@ -1,12 +1,6 @@
-let(global, 10);
-
-fn(add, void, a, num, b, num,
-    println(+(a, b)),
-    println(-(a, b, global)),
-    =(global, b)
+fn(add, num, a, num, b, num,
+    return(+(a, b)),
+    println("This shouldn't be printed!"),
 );
 
-if(true,
-    add(12, 13),
-    println(global)
-);
+println(add(12, 13));

@@ -8,7 +8,7 @@ use crate::signature;
 
 use super::consts::{string, boolean, number, any};
 use super::scope::{FunctionScope, FunctionSignature, VariableScope};
-use super::Data;
+use super::{Data, ControlFlow};
 
 /// A function that has the same power as a user defined function but is hard-coded.
 /// This means it does not have access to the raw [`Argument`](super::Argument) but rather the parsed [`Data`]
@@ -27,6 +27,9 @@ pub enum SystemFunction {
     Div,
     Mod,
     Println,
+    Break,
+    Continue,
+    Return,
 }
 
 impl SystemFunction {
@@ -56,7 +59,10 @@ impl SystemFunction {
             SystemFunction::Println => {
                 println!("{}", args.iter().map(|e| e.borrow().to_string()).collect::<Vec<_>>().join(" "));
                 Data::Unit
-            }
+            },
+            SystemFunction::Break => Data::ControlFlow(ControlFlow::Break),
+            SystemFunction::Continue => Data::ControlFlow(ControlFlow::Continue),
+            SystemFunction::Return => Data::ControlFlow(ControlFlow::Return(args[0].clone())),
         }
     }
 
@@ -75,6 +81,9 @@ impl SystemFunction {
             SystemFunction::Div => signature!("/".into(), Data::Number(0.), true, number()),
             SystemFunction::Mod => signature!("%".into(), Data::Number(0.), true, number()),
             SystemFunction::Println => signature!("println".into(), Data::Unit, true, any()),
+            SystemFunction::Break => signature!("break".into(), Data::ControlFlow(ControlFlow::Break), false),
+            SystemFunction::Continue => signature!("continue".into(), Data::ControlFlow(ControlFlow::Break), false),
+            SystemFunction::Return => signature!("return".into(), Data::ControlFlow(ControlFlow::Break), false, any()),
         }
     }
 }

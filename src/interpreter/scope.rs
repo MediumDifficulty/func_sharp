@@ -4,8 +4,8 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 use strum::IntoEnumIterator;
 
 use super::context::ContextFunction;
-use super::Argument;
 use super::{system::SystemFunction, Data, FunctionSource};
+use super::{Argument, ControlFlow};
 
 #[derive(Debug, Clone)]
 /// The signature of a [`FunctionSource`]
@@ -57,7 +57,8 @@ impl FunctionScope {
                 if let Some(corresponding) = corresponding {
                     if !match corresponding {
                         SignatureArgument::Data(data) => {
-                            arg.evaluated_discriminant(function_scope, variable_scope.clone()) == *data
+                            arg.evaluated_discriminant(function_scope, variable_scope.clone())
+                                == *data
                         }
                         _ => true,
                     } {
@@ -93,11 +94,20 @@ impl Default for FunctionScope {
     }
 }
 
+/// Generate default variable scope
 pub fn default_variable_scope() -> VariableScope {
     let mut scope = HashMap::new();
 
     scope.insert("true".into(), Rc::new(RefCell::new(Data::Boolean(true))));
     scope.insert("false".into(), Rc::new(RefCell::new(Data::Boolean(false))));
+    scope.insert(
+        "break".into(),
+        Rc::new(RefCell::new(Data::ControlFlow(ControlFlow::Break))),
+    );
+    scope.insert(
+        "continue".into(),
+        Rc::new(RefCell::new(Data::ControlFlow(ControlFlow::Continue))),
+    );
 
     scope
 }
