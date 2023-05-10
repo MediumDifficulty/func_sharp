@@ -28,7 +28,7 @@ impl DefinedFunction {
         args: &[Rc<RefCell<Data>>],
         function_scope: &mut FunctionScope,
         global_scope: Rc<RefCell<VariableScope>>,
-    ) -> Data {
+    ) -> Rc<RefCell<Data>> {
         // Load arguments into scope
         let scope = Rc::new(RefCell::new(self.scope.borrow().clone()));
         for (i, name) in self.argument_names.iter().enumerate() {
@@ -37,12 +37,12 @@ impl DefinedFunction {
 
         // Execute body
         for invocation in self.body.iter() {
-            if let Data::ControlFlow(ControlFlow::Return(data)) = invocation.evaluate(function_scope, scope.clone(), global_scope.clone()) {
-                return data.borrow().clone();
+            if let Data::ControlFlow(ControlFlow::Return(data)) = invocation.evaluate(function_scope, scope.clone(), global_scope.clone()).borrow().clone() {
+                return data;
             }
         }
 
-        Data::Unit
+        Rc::new(RefCell::new(Data::Unit))
     }
 
     pub fn new(arguments: &[Argument], global_scope: Rc<RefCell<VariableScope>>) -> Self {
@@ -97,9 +97,9 @@ impl DefinedFunction {
 
 fn str_to_data_discriminant(string: &str) -> Discriminant<Data> {
     match string {
-        "str" => mem::discriminant(&Data::String("".to_string())),
-        "num" => mem::discriminant(&Data::Number(0.)),
-        "bool" => mem::discriminant(&Data::Boolean(false)),
+        "str" | "string" => mem::discriminant(&Data::String("".to_string())),
+        "num" | "number" => mem::discriminant(&Data::Number(0.)),
+        "bool" | "boolean" => mem::discriminant(&Data::Boolean(false)),
         "void" => mem::discriminant(&Data::Unit),
         _ => panic!("Argument is not a recognised data type"),
     }

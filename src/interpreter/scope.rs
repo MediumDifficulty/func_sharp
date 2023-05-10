@@ -41,17 +41,17 @@ impl FunctionScope {
         variable_scope: Rc<RefCell<VariableScope>>,
     ) -> Option<&FunctionSource> {
         self.scope.iter().find(|&function| {
-            if function.signature().name != name {
+            if function.signature().get_ref().name != name {
                 return false;
             }
 
             let signature = function.signature();
 
             for (i, arg) in args.iter().enumerate() {
-                let corresponding = if signature.repeating {
-                    Some(&signature.args[i.min(signature.args.len() - 1)])
+                let corresponding = if signature.get_ref().repeating {
+                    Some(&signature.get_ref().args[i.min(signature.get_ref().args.len() - 1)])
                 } else {
-                    signature.args.get(i)
+                    signature.get_ref().args.get(i)
                 };
 
                 if let Some(corresponding) = corresponding {

@@ -21,3 +21,4 @@ pub fn any() -> SignatureArgument {
 signature_fn!(string, Data::String("".to_string()));
 signature_fn!(number, Data::Number(0.));
 signature_fn!(boolean, Data::Boolean(false));
+signature_fn!(list, Data::List(Vec::new()));

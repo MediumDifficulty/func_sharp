@@ -9,7 +9,7 @@ use std::{cell::RefCell, mem::Discriminant, rc::Rc};
 use pest::iterators::Pair;
 use std::mem;
 
-use crate::parser;
+use crate::{parser, util::OptionalStatic};
 
 use self::{
     context::ContextFunction,
@@ -40,6 +40,7 @@ pub enum Data {
     Number(f64),
     Boolean(bool),
     ControlFlow(ControlFlow),
+    List(Vec<Rc<RefCell<Data>>>),
     Unit,
 }
 
@@ -58,23 +59,12 @@ pub enum Argument {
     Ident(String),
 }
 
-pub fn execute(program: Pair<parser::Rule>) {
+pub fn execute(program: Vec<Invocation>) {
     let mut function_scope = FunctionScope::default();
     let variable_scope = Rc::new(RefCell::new(scope::default_variable_scope()));
 
-    for invocation in program.into_inner() {
-        match invocation.as_rule() {
-            parser::Rule::invocation => {
-                execute_function(
-                    invocation,
-                    &mut function_scope,
-                    variable_scope.clone(),
-                    variable_scope.clone(),
-                );
-            }
-            parser::Rule::EOI => (),
-            _ => unreachable!(),
-        }
+    for invocation in program.iter() {
+        invocation.evaluate(&mut function_scope, variable_scope.clone(), variable_scope.clone());
     }
 }
 
@@ -115,7 +105,7 @@ impl Invocation {
         function_scope: &mut FunctionScope,
         variable_scope: Rc<RefCell<VariableScope>>,
         global_scope: Rc<RefCell<VariableScope>>,
-    ) -> Data {
+    ) -> Rc<RefCell<Data>> {
         let got = function_scope
             .get(
                 &self.name,
@@ -156,11 +146,11 @@ impl Argument {
     ) -> Rc<RefCell<Data>> {
         match self {
             Argument::Data(data) => Rc::new(RefCell::new(data.clone())),
-            Argument::Function(invocation) => Rc::new(RefCell::new(invocation.evaluate(
+            Argument::Function(invocation) => invocation.evaluate(
                 function_scope,
                 variable_scope,
                 global_scope,
-            ))),
+            ),
             Argument::Ident(ident) => variable_scope
                 .borrow()
                 .get(ident)
@@ -180,6 +170,7 @@ impl Argument {
                     .get(&func.name, &func.args, function_scope, variable_scope)
                     .unwrap_or_else(|| panic!("Function not found: {}", func.name))
                     .signature()
+                    .get_ref()
                     .return_type
             }
             Argument::Data(data) => mem::discriminant(data),
@@ -237,6 +228,20 @@ impl Data {
             _ => panic!("Data is not a boolean"),
         }
     }
+
+    fn list(&self) -> Vec<Rc<RefCell<Data>>> {
+        match self{
+            Data::List(l) => l.clone(),
+            _ => panic!("Data is not a list"),
+        }
+    }
+
+    fn list_mut(&mut self) -> &mut Vec<Rc<RefCell<Data>>> {
+        match self{
+            Data::List(l) => l,
+            _ => panic!("Data is not a list"),
+        }
+    }
 }
 
 impl ToString for Data {
@@ -246,6 +251,7 @@ impl ToString for Data {
             Data::Number(n) => n.to_string(),
             Data::Boolean(b) => b.to_string(),
             Data::ControlFlow(c) => c.to_string(),
+            Data::List(l) => format!("[{}]", l.iter().map(|d| d.borrow().to_string()).collect::<Vec<_>>().join(", ")),
             Data::Unit => "()".to_string(),
         }
     }
@@ -262,11 +268,11 @@ impl ToString for ControlFlow {
 }
 
 impl FunctionSource {
-    fn signature(&self) -> FunctionSignature {
+    fn signature(&self) -> OptionalStatic<FunctionSignature> {
         match self {
             FunctionSource::System(func) => func.signature(),
             FunctionSource::Context(func) => func.signature(),
-            FunctionSource::Defined(func) => func.signature(),
+            FunctionSource::Defined(func) => OptionalStatic::Owned(func.signature()),
         }
     }
 
@@ -276,7 +282,7 @@ impl FunctionSource {
         function_scope: &mut FunctionScope,
         variable_scope: Rc<RefCell<VariableScope>>,
         global_scope: Rc<RefCell<VariableScope>>,
-    ) -> Data {
+    ) -> Rc<RefCell<Data>> {
         match self {
             FunctionSource::System(func) => func.execute(
                 &args
@@ -291,7 +297,7 @@ impl FunctionSource {
             FunctionSource::Context(func) => func.execute(
                 &context::to_context_args(
                     args,
-                    &func.signature(),
+                    func.signature().get_ref(),
                     function_scope,
                     variable_scope.clone(),
                     global_scope.clone(),

@@ -6,7 +6,7 @@ right_parentheses = _{ ")" }
 number = @{ "-"? ~ ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT*)? }
 string = ${ "\"" ~ text ~ "\"" }
 text   = @{ (!"\"" ~ ANY)* }
-ident  = @{ (!"," ~ !")" ~ ANY)+ }
+ident  = { (!"," ~ !")" ~ ANY)+ }
 
 argument = { invocation | number | string | ident }
 

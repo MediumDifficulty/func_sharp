@@ -4,3 +4,14 @@ fn(add, num, a, num, b, num,
 );
 
 println(add(12, 13));
+
+let(i, 0);
+while(true,
+    if(==(i, 5),
+        =(i, +(i, 1)),
+        continue,
+    ),
+    println(i),
+    if(==(i, 10), break),
+    =(i, +(i, 1)),
+);
