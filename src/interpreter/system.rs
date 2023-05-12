@@ -1,5 +1,4 @@
 use std::io::stdin;
-use std::mem;
 use std::{cell::RefCell, rc::Rc};
 
 use once_cell::sync::Lazy;
@@ -8,7 +7,7 @@ use strum_macros::EnumIter;
 use crate::signature;
 use crate::util::OptionalStatic;
 
-use super::consts::{string, boolean, number, any, list};
+use super::consts::{arg_string, arg_any, return_string, return_number, return_boolean, return_unit, return_control, arg_number, arg_boolean, arg_list, return_any, return_list};
 use super::scope::{FunctionScope, FunctionSignature, VariableScope};
 use super::{Data, ControlFlow};
 
@@ -41,6 +40,7 @@ pub enum SystemFunction {
     Pop,
     Index,
     Length,
+    List,
 }
 
 impl SystemFunction {
@@ -88,6 +88,7 @@ impl SystemFunction {
                 SystemFunction::Pop => return args[0].borrow_mut().list_mut().pop().unwrap(),
                 SystemFunction::Index => return args[0].borrow_mut().list().get(args[1].borrow().number() as usize).unwrap().clone(),
                 SystemFunction::Length => Data::Number(args[0].borrow_mut().list_mut().len() as f64),
+                SystemFunction::List => Data::List(args.to_vec()),
             }
         ))
     }
@@ -119,35 +120,37 @@ impl SystemFunction {
             SystemFunction::Pop => OptionalStatic::Static(&POP),
             SystemFunction::Index => OptionalStatic::Static(&INDEX),
             SystemFunction::Length => OptionalStatic::Static(&LENGTH),
+            SystemFunction::List => OptionalStatic::Static(&LIST),
         }
     }
 }
 
-static STDIN: Lazy<FunctionSignature> = Lazy::new(|| signature!("stdin".into(), Data::String("".into()), false));
-static NUMBER: Lazy<FunctionSignature> = Lazy::new(|| signature!("number".into(), Data::Number(0.), false, string()));
-static TRIM: Lazy<FunctionSignature> = Lazy::new(|| signature!("trim".into(), Data::String("".into()), false, string()));
-static NOT: Lazy<FunctionSignature> = Lazy::new(|| signature!("!".into(), Data::Boolean(false), false, boolean()));
-static AND: Lazy<FunctionSignature> = Lazy::new(|| signature!("&&".into(), Data::Boolean(false), true, boolean()));
-static OR: Lazy<FunctionSignature> = Lazy::new(|| signature!("||".into(), Data::Boolean(false), true, boolean()));
-static XOR: Lazy<FunctionSignature> = Lazy::new(|| signature!("^".into(), Data::Boolean(false), true, boolean()));
-static ADD: Lazy<FunctionSignature> = Lazy::new(|| signature!("+".into(), Data::Number(0.), true, number()));
-static SUB: Lazy<FunctionSignature> = Lazy::new(|| signature!("-".into(), Data::Number(0.), true, number()));
-static MUL: Lazy<FunctionSignature> = Lazy::new(|| signature!("*".into(), Data::Number(0.), true, number()));
-static DIV: Lazy<FunctionSignature> = Lazy::new(|| signature!("/".into(), Data::Number(0.), true, number()));
-static MOD: Lazy<FunctionSignature> = Lazy::new(|| signature!("%".into(), Data::Number(0.), true, number()));
-static PRINTLN: Lazy<FunctionSignature> = Lazy::new(|| signature!("println".into(), Data::Unit, true, any()));
-static BREAK: Lazy<FunctionSignature> = Lazy::new(|| signature!("break".into(), Data::ControlFlow(ControlFlow::Break), false));
-static CONTINUE: Lazy<FunctionSignature> = Lazy::new(|| signature!("continue".into(), Data::ControlFlow(ControlFlow::Break), false));
-static RETURN: Lazy<FunctionSignature> = Lazy::new(|| signature!("return".into(), Data::ControlFlow(ControlFlow::Break), false, any()));
-static CMP: Lazy<FunctionSignature> = Lazy::new(|| signature!("==".into(), Data::Boolean(false), false, any(), any()));
-static GREATER_THAN: Lazy<FunctionSignature> = Lazy::new(|| signature!(">".into(), Data::Boolean(false), false, number(), number()));
-static GREATER_THAN_OR_EQUAL: Lazy<FunctionSignature> = Lazy::new(|| signature!(">=".into(), Data::Boolean(false), false, number(), number()));
-static LESS_THAN: Lazy<FunctionSignature> = Lazy::new(|| signature!("<".into(), Data::Boolean(false), false, number(), number()));
-static LESS_THAN_OR_EQUAL: Lazy<FunctionSignature> = Lazy::new(|| signature!("<=".into(), Data::Boolean(false), false, number(), number()));
-static PUSH: Lazy<FunctionSignature> = Lazy::new(|| signature!("push".into(), Data::Unit, true, list(), any()));
-static POP: Lazy<FunctionSignature> = Lazy::new(|| signature!("pop".into(), Data::Unit, true, list()));
-static INDEX: Lazy<FunctionSignature> = Lazy::new(|| signature!("index".into(), Data::Unit, true, list(), number())); // TODO:
-static LENGTH: Lazy<FunctionSignature> = Lazy::new(|| signature!("length".into(), Data::Number(0.), true, list()));
+static STDIN: Lazy<FunctionSignature> = Lazy::new(|| signature!("stdin".into(), return_string(), false));
+static NUMBER: Lazy<FunctionSignature> = Lazy::new(|| signature!("number".into(), return_number(), false, arg_string()));
+static TRIM: Lazy<FunctionSignature> = Lazy::new(|| signature!("trim".into(), return_string(), false, arg_string()));
+static NOT: Lazy<FunctionSignature> = Lazy::new(|| signature!("!".into(), return_boolean(), false, arg_boolean()));
+static AND: Lazy<FunctionSignature> = Lazy::new(|| signature!("&&".into(), return_boolean(), true, arg_boolean()));
+static OR: Lazy<FunctionSignature> = Lazy::new(|| signature!("||".into(), return_boolean(), true, arg_boolean()));
+static XOR: Lazy<FunctionSignature> = Lazy::new(|| signature!("^".into(), return_boolean(), true, arg_boolean()));
+static ADD: Lazy<FunctionSignature> = Lazy::new(|| signature!("+".into(), return_number(), true, arg_number()));
+static SUB: Lazy<FunctionSignature> = Lazy::new(|| signature!("-".into(), return_number(), true, arg_number()));
+static MUL: Lazy<FunctionSignature> = Lazy::new(|| signature!("*".into(), return_number(), true, arg_number()));
+static DIV: Lazy<FunctionSignature> = Lazy::new(|| signature!("/".into(), return_number(), true, arg_number()));
+static MOD: Lazy<FunctionSignature> = Lazy::new(|| signature!("%".into(), return_number(), true, arg_number()));
+static PRINTLN: Lazy<FunctionSignature> = Lazy::new(|| signature!("println".into(), return_unit(), true, arg_any()));
+static BREAK: Lazy<FunctionSignature> = Lazy::new(|| signature!("break".into(), return_control(), false));
+static CONTINUE: Lazy<FunctionSignature> = Lazy::new(|| signature!("continue".into(), return_control(), false));
+static RETURN: Lazy<FunctionSignature> = Lazy::new(|| signature!("return".into(), return_control(), false, arg_any()));
+static CMP: Lazy<FunctionSignature> = Lazy::new(|| signature!("==".into(), return_boolean(), false, arg_any(), arg_any()));
+static GREATER_THAN: Lazy<FunctionSignature> = Lazy::new(|| signature!(">".into(), return_boolean(), false, arg_number(), arg_number()));
+static GREATER_THAN_OR_EQUAL: Lazy<FunctionSignature> = Lazy::new(|| signature!(">=".into(), return_boolean(), false, arg_number(), arg_number()));
+static LESS_THAN: Lazy<FunctionSignature> = Lazy::new(|| signature!("<".into(), return_boolean(), false, arg_number(), arg_number()));
+static LESS_THAN_OR_EQUAL: Lazy<FunctionSignature> = Lazy::new(|| signature!("<=".into(), return_boolean(), false, arg_number(), arg_number()));
+static PUSH: Lazy<FunctionSignature> = Lazy::new(|| signature!("push".into(), return_unit(), true, arg_list(), arg_any()));
+static POP: Lazy<FunctionSignature> = Lazy::new(|| signature!("pop".into(), return_unit(), true, arg_list()));
+static INDEX: Lazy<FunctionSignature> = Lazy::new(|| signature!("index".into(), return_any(), true, arg_list(), arg_number()));
+static LENGTH: Lazy<FunctionSignature> = Lazy::new(|| signature!("length".into(), return_number(), true, arg_list()));
+static LIST: Lazy<FunctionSignature> = Lazy::new(|| signature!("list".into(), return_list(), true, arg_any()));
 
 fn operator_impl(operation: impl FnMut(f64, &Rc<RefCell<Data>>) -> f64, args: &[Rc<RefCell<Data>>]) -> Data {
     let mut iter = args.iter();

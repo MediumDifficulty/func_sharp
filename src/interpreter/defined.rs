@@ -5,7 +5,7 @@ use std::{
 };
 
 use super::{
-    scope::{FunctionScope, FunctionSignature, SignatureArgument, VariableScope},
+    scope::{FunctionScope, FunctionSignature, SignatureArgument, VariableScope, ReturnType},
     Argument, Data, Invocation, ControlFlow,
 };
 
@@ -48,8 +48,7 @@ impl DefinedFunction {
     pub fn new(arguments: &[Argument], global_scope: Rc<RefCell<VariableScope>>) -> Self {
         let mut args = arguments.iter();
         let name = args.next().expect("No function name given").ident();
-        let return_type =
-            str_to_data_discriminant(&args.next().expect("Malformed function").ident());
+        let return_type = ReturnType::Data(str_to_data_discriminant(&args.next().expect("Malformed function").ident()));
 
         let mut argument_names = Vec::new();
         let mut argument_types = Vec::new();

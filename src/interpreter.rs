@@ -14,7 +14,7 @@ use crate::{parser, util::OptionalStatic};
 use self::{
     context::ContextFunction,
     defined::DefinedFunction,
-    scope::{FunctionScope, FunctionSignature, VariableScope},
+    scope::{FunctionScope, FunctionSignature, VariableScope, ReturnType},
     system::SystemFunction,
 };
 
@@ -68,23 +68,12 @@ pub fn execute(program: Vec<Invocation>) {
     }
 }
 
-fn execute_function(
-    function: Pair<parser::Rule>,
-    function_scope: &mut FunctionScope,
-    variable_scope: Rc<RefCell<VariableScope>>,
-    global_scope: Rc<RefCell<VariableScope>>,
-) {
-    let parsed = Invocation::from(function);
-
-    parsed.evaluate(function_scope, variable_scope, global_scope);
-}
-
 #[macro_export]
 macro_rules! signature {
     ($name:expr, $return_type:expr, $repeating:expr, $($arg:expr),+) => {
         FunctionSignature {
             name: $name,
-            return_type: mem::discriminant(&$return_type),
+            return_type: $return_type,
             repeating: $repeating,
             args: vec![$($arg),+],
         }
@@ -92,7 +81,7 @@ macro_rules! signature {
     ($name:expr, $return_type:expr, $repeating:expr) => {
         FunctionSignature {
             name: $name,
-            return_type: mem::discriminant(&$return_type),
+            return_type: $return_type,
             repeating: $repeating,
             args: Vec::new(),
         }
@@ -159,11 +148,11 @@ impl Argument {
         }
     }
 
-    pub fn evaluated_discriminant(
+    pub fn return_type(
         &self,
         function_scope: &FunctionScope,
         variable_scope: Rc<RefCell<VariableScope>>,
-    ) -> Discriminant<Data> {
+    ) -> ReturnType {
         match self {
             Argument::Function(func) => {
                 function_scope
@@ -172,15 +161,16 @@ impl Argument {
                     .signature()
                     .get_ref()
                     .return_type
+                    .clone()
             }
-            Argument::Data(data) => mem::discriminant(data),
-            Argument::Ident(ident) => mem::discriminant(
+            Argument::Data(data) => ReturnType::Data(mem::discriminant(data)),
+            Argument::Ident(ident) => ReturnType::Data(mem::discriminant(
                 &*variable_scope
                     .borrow()
                     .get(ident)
                     .expect("Variable not found")
                     .borrow(),
-            ),
+            )),
         }
     }
 

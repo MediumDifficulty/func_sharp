@@ -8,7 +8,7 @@ use strum_macros::EnumIter;
 use crate::signature;
 use crate::util::OptionalStatic;
 
-use super::consts::{any, boolean, raw};
+use super::consts::{arg_any, arg_raw, return_unit, arg_boolean};
 use super::defined::DefinedFunction;
 use super::scope::{FunctionScope, FunctionSignature, SignatureArgument, VariableScope};
 use super::{Argument, Data, FunctionSource, ControlFlow};
@@ -151,11 +151,11 @@ impl ContextFunction {
     }
 }
 
-static LET: Lazy<FunctionSignature> = Lazy::new(|| signature!("let".into(), Data::Unit, false, raw(), any()));
-static IF: Lazy<FunctionSignature> = Lazy::new(|| signature!("if".into(), Data::Unit, true, boolean(), raw()));
-static ASSIGN: Lazy<FunctionSignature> = Lazy::new(|| signature!("=".into(), Data::Unit, false, raw(), any()));
-static WHILE: Lazy<FunctionSignature> = Lazy::new(|| signature!("while".into(), Data::Unit, true, raw(), raw()));
-static FN: Lazy<FunctionSignature> = Lazy::new(|| signature!("fn".into(), Data::Unit, true, raw(), raw()));
+static LET: Lazy<FunctionSignature> = Lazy::new(|| signature!("let".into(), return_unit(), false, arg_raw(), arg_any()));
+static IF: Lazy<FunctionSignature> = Lazy::new(|| signature!("if".into(), return_unit(), true, arg_boolean(), arg_raw()));
+static ASSIGN: Lazy<FunctionSignature> = Lazy::new(|| signature!("=".into(), return_unit(), false, arg_raw(), arg_any()));
+static WHILE: Lazy<FunctionSignature> = Lazy::new(|| signature!("while".into(), return_unit(), true, arg_raw(), arg_raw()));
+static FN: Lazy<FunctionSignature> = Lazy::new(|| signature!("fn".into(), return_unit(), true, arg_raw(), arg_raw()));
 
 pub fn to_context_args(
     args: &[Argument],

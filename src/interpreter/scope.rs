@@ -13,7 +13,7 @@ pub struct FunctionSignature {
     pub name: String,
     pub args: Vec<SignatureArgument>,
     pub repeating: bool,
-    pub return_type: Discriminant<Data>,
+    pub return_type: ReturnType,
 }
 
 #[derive(Debug, Clone)]
@@ -22,6 +22,12 @@ pub enum SignatureArgument {
     Raw,
     Any,
     Data(Discriminant<Data>),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ReturnType {
+    Data(Discriminant<Data>),
+    Any,
 }
 
 /// Contains a list of all defined functions
@@ -57,8 +63,10 @@ impl FunctionScope {
                 if let Some(corresponding) = corresponding {
                     if !match corresponding {
                         SignatureArgument::Data(data) => {
-                            arg.evaluated_discriminant(function_scope, variable_scope.clone())
-                                == *data
+                            match arg.return_type(function_scope, variable_scope.clone()) {
+                                ReturnType::Data(value) => value == *data,
+                                ReturnType::Any => true,
+                            }
                         }
                         _ => true,
                     } {
